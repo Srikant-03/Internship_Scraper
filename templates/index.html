@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI/ML Internship Radar</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <!-- Phosphor Icons for premium UI -->
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+</head>
+
+<body>
+    <div class="app-container">
+        <!-- Sidebar Filters -->
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <i class="ph-fill ph-radar"></i>
+                <h2>AI/ML Radar</h2>
+            </div>
+
+            <button id="trigger-scrape-btn" class="scrape-btn">
+                <i class="ph ph-arrows-clockwise"></i>
+                <span id="scrape-btn-text">Run Scraper Now</span>
+            </button>
+
+            <div class="filter-section">
+                <h3>Search</h3>
+                <div class="search-box">
+                    <i class="ph ph-magnifying-glass"></i>
+                    <input type="text" id="search-input" placeholder="Role, company, skills...">
+                </div>
+            </div>
+
+            <div class="filter-section">
+                <h3>Location Type</h3>
+                <div class="button-group" id="location-filters">
+                    <button class="filter-btn active" data-val="all">All</button>
+                    <button class="filter-btn" data-val="Remote">Remote</button>
+                    <button class="filter-btn" data-val="India">India</button>
+                    <button class="filter-btn" data-val="International">Abroad</button>
+                </div>
+            </div>
+
+            <div class="filter-section">
+                <h3>Stipend (INR)</h3>
+                <div class="button-group vert" id="stipend-filters">
+                    <button class="filter-btn active" data-val="all">Any</button>
+                    <button class="filter-btn" data-val="paid">Paid Only (>0)</button>
+                    <button class="filter-btn" data-val="10k">> ₹10,000 / mo</button>
+                    <button class="filter-btn" data-val="20k">> ₹20,000 / mo</button>
+                    <button class="filter-btn" data-val="50k">> ₹50,000 / mo</button>
+                    <button class="filter-btn" data-val="unpaid">Unpaid / Hidden</button>
+                </div>
+            </div>
+
+            <div class="filter-section">
+                <h3>Source Platform</h3>
+                <select id="source-filter" class="custom-select">
+                    <option value="all">All Sources</option>
+                    <!-- Populated dynamically -->
+                </select>
+            </div>
+
+            <div class="filter-section">
+                <h3>Organization Type</h3>
+                <div class="button-group" id="org-filters">
+                    <button class="filter-btn active" data-val="all">All</button>
+                    <button class="filter-btn" data-val="Company">Company</button>
+                    <button class="filter-btn" data-val="Institution">Institution</button>
+                    <button class="filter-btn" data-val="Government">Government</button>
+                </div>
+            </div>
+
+            <div class="filter-section">
+                <h3>Role Level</h3>
+                <div class="button-group" id="role-filters">
+                    <button class="filter-btn active" data-val="all">All</button>
+                    <button class="filter-btn" data-val="Research">Research Core</button>
+                    <button class="filter-btn" data-val="Applied">Applied Eng</button>
+                </div>
+            </div>
+
+            <div class="sidebar-footer">
+                <p>Auto-updates daily at 8:00 AM</p>
+                <div class="stats">
+                    Total listings: <span id="total-count">0</span>
+                </div>
+            </div>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <header class="top-nav">
+                <div class="header-left">
+                    <h1>Internship Opportunities</h1>
+                    <p class="subtitle">Your Personalized AI/ML Summer Radar</p>
+                </div>
+                <div class="nav-actions">
+                    <span class="showing-text">Showing <strong id="visible-count">0</strong> results</span>
+                    <button class="icon-btn" id="info-btn" title="How to use this scraper">
+                        <i class="ph ph-info"></i>
+                    </button>
+                    <button id="refresh-data-btn" class="icon-btn" title="Refresh local data" onclick="loadData()">
+                        <i class="ph ph-arrow-counter-clockwise"></i>
+                    </button>
+                </div>
+            </header>
+
+            <div class="loading-overlay" id="loading-spinner">
+                <div class="spinner"></div>
+                <p>Fetching internships...</p>
+            </div>
+
+            <div class="listings-grid" id="listings-container">
+                <!-- Cards injected here by JS -->
+            </div>
+        </main>
+    </div>
+
+    <!-- Instructions Modal -->
+    <div class="modal-overlay hidden" id="instructions-modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2><i class="ph-fill ph-book-open"></i> How to Use the Radar</h2>
+                <button class="close-btn" id="close-modal-btn"><i class="ph ph-x"></i></button>
+            </div>
+            <div class="modal-body">
+                <p>Welcome to the ultimate AI/ML Summer Internship radar! Here's how to navigate your dashboard:</p>
+                <ul>
+                    <li><strong>Running the Scraper:</strong> Click the <em>Run Scraper Now</em> button in the sidebar.
+                        This fires off 16 automated engines in the background, including Playwright-stealth and
+                        DuckDuckGo Dork searches across the web, looking for hidden opportunities. This may take 5-10
+                        minutes. </li>
+                    <li><strong>Match Scores:</strong> Every internship is scored out of 100 based on core AI/ML
+                        research keywords and competitive stipends. Look for the glowing green <strong>High
+                            Score</strong> badges!</li>
+                    <li><strong>Smart Filtering:</strong> Use the sidebar to instantly filter by <em>Organization
+                            Type</em> (e.g., check only Academic Institutions for summer research), <em>Role Level</em>
+                        (Core Research vs Applied Engineering), Location, and Stipend. </li>
+                </ul>
+                <p><strong>Note:</strong> The scraper is hard-coded with NLP rules requiring the internship to start in
+                    the summer (May 20 onwards). Any generic rolling internship without a specified date defaults to
+                    approved so you don't miss out.</p>
+            </div>
+        </div>
+    </div>
+
+    <script src="{{ url_for('static', filename='script.js') }}"></script>
+</body>
+
+</html>
