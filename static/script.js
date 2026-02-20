@@ -175,7 +175,6 @@ async function triggerScraper() {
     try {
         const res = await fetch("/api/scrape", { method: "POST" });
         const data = await res.json();
-        console.log("Scrape response:", data);
         setTimeout(checkScraperStatus, 2000);
     } catch (err) {
         console.error("Error triggering scrape", err);
