@@ -1,0 +1,14 @@
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.env
+venv/
+.venv/
+env/
+.env/
+internships_log.json
+internships.csv
+scraper_errors.log
+cron_output.log
+.DS_Store
