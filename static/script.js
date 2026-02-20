@@ -14,6 +14,9 @@ document.addEventListener("DOMContentLoaded", () => {
     setupFilters("org-filters", "org");
     setupFilters("role-filters", "role");
 
+    // Region tab bar (Everything / India / Global / Remote)
+    setupRegionTabs();
+
     document.getElementById("trigger-scrape-btn").addEventListener("click", triggerScraper);
 
     // Modal controls
@@ -24,8 +27,24 @@ document.addEventListener("DOMContentLoaded", () => {
         if (e.target === modal) modal.classList.add("hidden");
     });
 
-    // Poll status
-    setInterval(checkScraperStatus, 10000);
+    // Logs panel controls
+    document.getElementById("toggle-logs-btn").addEventListener("click", () => {
+        const panel = document.getElementById("logs-panel");
+        panel.classList.toggle("hidden");
+        if (!panel.classList.contains("hidden")) {
+            fetchLogs();
+        }
+    });
+
+    document.getElementById("close-logs-btn").addEventListener("click", () => {
+        document.getElementById("logs-panel").classList.add("hidden");
+    });
+
+    // Poll status and logs
+    setInterval(() => {
+        checkScraperStatus();
+        fetchLogs();
+    }, 4000);
 });
 
 function setupFilters(containerId, filterType) {
@@ -36,7 +55,12 @@ function setupFilters(containerId, filterType) {
         btn.addEventListener('click', (e) => {
             buttons.forEach(b => b.classList.remove('active'));
             e.target.classList.add('active');
-            window[`active${filterType.charAt(0).toUpperCase() + filterType.slice(1)}Filter`] = e.target.dataset.val;
+            const val = e.target.dataset.val;
+            window[`active${filterType.charAt(0).toUpperCase() + filterType.slice(1)}Filter`] = val;
+
+            // Sync region tab bar when sidebar location changes
+            if (filterType === 'location') syncRegionTabs(val);
+
             renderListings();
         });
     });
@@ -44,6 +68,46 @@ function setupFilters(containerId, filterType) {
     // Default
     window[`active${filterType.charAt(0).toUpperCase() + filterType.slice(1)}Filter`] = "all";
 }
+
+function setupRegionTabs() {
+    const tabs = document.querySelectorAll('.region-tab');
+    tabs.forEach(tab => {
+        tab.addEventListener('click', () => {
+            const region = tab.dataset.region;
+            // Update active tab
+            tabs.forEach(t => t.classList.remove('active'));
+            tab.classList.add('active');
+            // Sync location filter
+            window.activeLocationFilter = region;
+            // Sync sidebar buttons
+            const sidebarBtns = document.querySelectorAll('#location-filters .filter-btn');
+            sidebarBtns.forEach(b => {
+                b.classList.toggle('active', b.dataset.val === region);
+            });
+            renderListings();
+        });
+    });
+}
+
+function syncRegionTabs(val) {
+    const tabs = document.querySelectorAll('.region-tab');
+    tabs.forEach(t => t.classList.toggle('active', t.dataset.region === val));
+}
+
+function updateRegionCounts() {
+    const counts = { all: allInternships.length, India: 0, International: 0, Remote: 0 };
+    allInternships.forEach(i => {
+        if (i.location_type === 'India') counts.India++;
+        else if (i.location_type === 'Remote') counts.Remote++;
+        else counts.International++;
+    });
+    const fmt = n => n > 0 ? n.toLocaleString() : '—';
+    document.getElementById('tab-count-all').textContent = fmt(counts.all);
+    document.getElementById('tab-count-india').textContent = fmt(counts.India);
+    document.getElementById('tab-count-global').textContent = fmt(counts.International);
+    document.getElementById('tab-count-remote').textContent = fmt(counts.Remote);
+}
+
 
 async function loadData() {
     document.getElementById("loading-spinner").classList.remove("hidden");
@@ -65,6 +129,7 @@ async function loadData() {
         });
 
         renderListings();
+        updateRegionCounts();
     } catch (err) {
         console.error("Failed to load data", err);
     } finally {
@@ -130,7 +195,7 @@ function renderListings() {
         return;
     }
 
-    filtered.forEach(item => {
+    filtered.forEach((item, index) => {
         const isNewHtml = item.is_new ? `<div class="new-badge">New</div>` : '';
         const stipendDisp = item.stipend ? item.stipend : "Unpaid / Not Disclosed";
         const durDisp = item.duration ? item.duration : "N/A";
@@ -141,7 +206,8 @@ function renderListings() {
         const roleBadge = item.role_type ? `<span class="tag tag-role"><i class="ph ph-flask"></i> ${item.role_type}</span>` : '';
 
         const card = document.createElement("div");
-        card.className = "card";
+        card.className = "card visible";
+        card.style.animationDelay = `${index * 0.05}s`;
         card.innerHTML = `
             ${isNewHtml}
             ${scoreBadge}
@@ -217,5 +283,26 @@ function setScrapingState(isRunning) {
             wasRunning = false;
             loadData();
         }
+    }
+}
+
+async function fetchLogs() {
+    const panel = document.getElementById("logs-panel");
+    if (panel && panel.classList.contains("hidden")) return;
+
+    try {
+        const res = await fetch("/api/logs");
+        const data = await res.json();
+        const content = document.getElementById("logs-content");
+
+        const isScrolledToBottom = content.scrollHeight - content.clientHeight <= content.scrollTop + 10;
+
+        content.innerHTML = data.logs.map(l => `<div>${l}</div>`).join("");
+
+        if (isScrolledToBottom) {
+            content.scrollTop = content.scrollHeight;
+        }
+    } catch (e) {
+        console.error("Failed to fetch logs", e);
     }
 }

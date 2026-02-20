@@ -1,9 +1,11 @@
 import hashlib
 from datetime import datetime
 from loguru import logger
-from loguru import logger
 from scraper_utils import human_delay
-from duckduckgo_search import DDGS
+try:
+    from ddgs import DDGS  # new package name
+except ImportError:
+    from duckduckgo_search import DDGS  # legacy fallback
 from filters import calculate_match_score, is_valid_internship
 
 def scrape_search_engine():
@@ -69,13 +71,31 @@ def scrape_search_engine():
             "source_prefix": "Open Source",
             "loc": "Global / Remote",
             "loc_type": "Remote"
+        },
+        # 7. Blocked Indian Job Boards (Naukri, Foundit, Cutshort)
+        {
+            "q": f'(site:naukri.com/job-listings OR site:foundit.in OR site:cutshort.io) "machine learning" OR "artificial intelligence" "intern" OR "internship" {current_year}',
+            "org_type": "Company",
+            "role_type": "Applied",
+            "source_prefix": "India Boards (Dork)",
+            "loc": "India",
+            "loc_type": "India"
+        },
+        # 8. Blocked Global Job Boards (LinkedIn, Indeed)
+        {
+            "q": f'(site:linkedin.com/jobs/view OR site:indeed.com/viewjob) "machine learning" OR "artificial intelligence" "intern" OR "internship" {current_year}',
+            "org_type": "Company",
+            "role_type": "Applied",
+            "source_prefix": "Global Boards (Dork)",
+            "loc": "Global",
+            "loc_type": "International"
         }
     ]
     
     try:
         ddgs = DDGS()
         for q_obj in queries:
-            print(f"Running Dork Search: {q_obj['q']}")
+            logger.info(f"Running Dork Search: {q_obj['q']}")
             try:
                 # Use text search, fetching top 15 results
                 results = list(ddgs.text(q_obj['q'], max_results=15))

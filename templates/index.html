@@ -13,6 +13,7 @@
 </head>
 
 <body>
+    <div class="tech-background"></div>
     <div class="app-container">
         <!-- Sidebar Filters -->
         <aside class="sidebar">
@@ -37,10 +38,10 @@
             <div class="filter-section">
                 <h3>Location Type</h3>
                 <div class="button-group" id="location-filters">
-                    <button class="filter-btn active" data-val="all">All</button>
-                    <button class="filter-btn" data-val="Remote">Remote</button>
-                    <button class="filter-btn" data-val="India">India</button>
-                    <button class="filter-btn" data-val="International">Abroad</button>
+                    <button class="filter-btn active" data-val="all">🌍 All</button>
+                    <button class="filter-btn" data-val="Remote">📡 Remote</button>
+                    <button class="filter-btn" data-val="India">🇮🇳 India</button>
+                    <button class="filter-btn" data-val="International">🌐 Global</button>
                 </div>
             </div>
 
@@ -88,6 +89,12 @@
                 <div class="stats">
                     Total listings: <span id="total-count">0</span>
                 </div>
+                <div class="logs-toggle mt-4">
+                    <button id="toggle-logs-btn" class="filter-btn"
+                        style="width: 100%; justify-content:center; display: flex; align-items: center; gap: 8px;">
+                        <i class="ph ph-terminal"></i> View Live Logs
+                    </button>
+                </div>
             </div>
         </aside>
 
@@ -109,14 +116,42 @@
                 </div>
             </header>
 
-            <div class="loading-overlay" id="loading-spinner">
-                <div class="spinner"></div>
-                <p>Fetching internships...</p>
+            <div class="radar-container hidden" id="loading-spinner">
+                <div class="radar"></div>
+                <div class="radar-text" id="radar-text">SCANNING DATABANKS...</div>
             </div>
 
-            <div class="listings-grid" id="listings-container">
-                <!-- Cards injected here by JS -->
-            </div>
+            <div class="main-scroll-area">
+
+                <!-- India / Global / All Quick Toggle -->
+                <div class="region-tabs" id="region-tab-bar">
+                    <button class="region-tab active" data-region="all" id="tab-all">
+                        <span class="tab-flag">🌍</span>
+                        <span class="tab-label">Everything</span>
+                        <span class="tab-count" id="tab-count-all">—</span>
+                    </button>
+                    <button class="region-tab" data-region="India" id="tab-india">
+                        <span class="tab-flag">🇮🇳</span>
+                        <span class="tab-label">India</span>
+                        <span class="tab-count" id="tab-count-india">—</span>
+                    </button>
+                    <button class="region-tab" data-region="International" id="tab-global">
+                        <span class="tab-flag">🌐</span>
+                        <span class="tab-label">Global / Abroad</span>
+                        <span class="tab-count" id="tab-count-global">—</span>
+                    </button>
+                    <button class="region-tab" data-region="Remote" id="tab-remote">
+                        <span class="tab-flag">📡</span>
+                        <span class="tab-label">Remote</span>
+                        <span class="tab-count" id="tab-count-remote">—</span>
+                    </button>
+                </div>
+
+                <div class="listings-grid" id="listings-container">
+                    <!-- Cards injected here by JS -->
+                </div>
+
+            </div><!-- /.main-scroll-area -->
         </main>
     </div>
 
@@ -146,6 +181,16 @@
                     approved so you don't miss out.</p>
             </div>
         </div>
+    </div>
+
+    <!-- Logs Panel -->
+    <div id="logs-panel" class="logs-panel hidden">
+        <div class="logs-header">
+            <h3><i class="ph ph-terminal"></i> Activity Log</h3>
+            <button id="close-logs-btn" class="icon-btn" style="width: 28px; height: 28px;"><i
+                    class="ph ph-x"></i></button>
+        </div>
+        <div id="logs-content" class="logs-content"></div>
     </div>
 
     <script src="{{ url_for('static', filename='script.js') }}"></script>

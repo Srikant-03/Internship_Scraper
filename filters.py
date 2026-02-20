@@ -50,8 +50,8 @@ def is_valid_stipend(stipend_str: str, numeric_val: float, is_india: bool) -> bo
         return False
         
     if is_india:
-        # Minimum stipend is 20 INR
-        if numeric_val > 0 and numeric_val < 20000:
+        # Minimum stipend is 5000 INR per month to avoid very low-value listings
+        if numeric_val > 0 and numeric_val < 5000:
             return False
             
     return True
@@ -61,7 +61,8 @@ def parse_summer_dates(date_string: str) -> bool:
     NLP constraint: Internship MUST start on/after May 20. End date is flexible.
     If explicitly says Summer, it passes.
     """
-    if not date_string or str(date_string).strip().lower() in ["", "not mentioned", "rolling"]:
+    ALLOW_TERMS = ["", "not mentioned", "rolling", "immediately", "asap", "flexible", "ongoing", "open", "continuous", "anytime"]
+    if not date_string or str(date_string).strip().lower() in ALLOW_TERMS:
         return True # Default allow if unspecified
         
     date_lower = str(date_string).lower()

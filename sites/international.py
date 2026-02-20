@@ -23,7 +23,7 @@ def parse_weworkremotely():
             page = browser.new_page()
             Stealth().apply_stealth_sync(page)
             url = "https://weworkremotely.com/remote-jobs/search?term=internship+machine+learning"
-            print(f"Scraping WeWorkRemotely: {url}")
+            logger.info(f"Scraping WeWorkRemotely: {url}")
             page.goto(url, timeout=30000)
             human_delay(3.0, 5.0)
             
@@ -33,12 +33,16 @@ def parse_weworkremotely():
             listings = soup.find_all("li", class_="feature")
             for listing in listings:
                 try:
-                    title_elem = listing.find("span", class_="title")
+                    title_elem = listing.find("h3", class_="new-listing__header__title")
+                    if not title_elem:
+                        title_elem = listing.find("span", class_="title")
                     if not title_elem: continue
                     role_title = title_elem.text.strip()
                     
-                    comp_elem = listing.find("span", class_="company")
-                    company_name = comp_elem.text.strip() if comp_elem else "Unknown Company"
+                    comp_elem = listing.find("p", class_="new-listing__company-name")
+                    if not comp_elem:
+                        comp_elem = listing.find("span", class_="company")
+                    company_name = comp_elem.text.strip().replace("\n", "").split("  ")[0].strip() if comp_elem else "Unknown Company"
                     
                     apply_link = ""
                     link_elem = listing.find_all("a", href=True)

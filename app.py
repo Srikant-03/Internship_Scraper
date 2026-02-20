@@ -56,5 +56,18 @@ def scrape_status():
         return jsonify({"status": "running"})
     return jsonify({"status": "idle"})
 
+@app.route("/api/logs")
+def get_logs():
+    log_file = Path(__file__).parent / "scraper_run.log"
+    if not log_file.exists():
+        return jsonify({"logs": ["No logs yet. Click 'Run Scraper Now' to start!"]})
+    try:
+        with open(log_file, "r", encoding="utf-8") as f:
+            lines = f.readlines()
+            # Return last N lines
+            return jsonify({"logs": [l.strip() for l in lines[-75:]]})
+    except Exception as e:
+        return jsonify({"logs": [f"Error reading logs: {e}"]})
+
 if __name__ == "__main__":
     app.run(debug=True, port=5000)

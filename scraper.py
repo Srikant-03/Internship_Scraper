@@ -10,13 +10,16 @@ from sites.naukri import scrape_naukri
 from sites.government import scrape_government
 from sites.misc_india import scrape_shine, scrape_foundit, scrape_apna, scrape_cutshort
 from sites.international import scrape_international
-from sites.rss_feeds import scrape_linkedin, scrape_indeed
+from sites.rss_feeds import scrape_linkedin as scrape_remotive, scrape_indeed as scrape_weworkremotely
+from sites.linkedin import scrape_linkedin  # NEW: direct LinkedIn Jobs page scraper
 from sites.bigtech import scrape_bigtech
 from sites.niche import scrape_niche_boards, scrape_aggregators
 from sites.universities import scrape_universities
 from sites.search_engine import scrape_search_engine
 
 logger.add("scraper_errors.log", rotation="1 MB", level="ERROR")
+# Human-readable logs for the UI
+logger.add("scraper_run.log", rotation="5 MB", level="INFO", format="{time:YYYY-MM-DD HH:mm:ss} | {message}")
 
 def process_and_save(source_name: str, raw_listings: list):
     valid_listings = []
@@ -37,11 +40,11 @@ def process_and_save(source_name: str, raw_listings: list):
         valid_listings.append(item)
     
     if not valid_listings:
-        print(f"[{source_name}] Found 0 valid new listings out of {len(raw_listings)} scraped.")
+        logger.info(f"[{source_name}] Searched through {len(raw_listings)} listings, but none matched our criteria.")
         return 0
         
     added = append_to_csv(valid_listings)
-    print(f"[{source_name}] Scraped {len(raw_listings)}, {len(valid_listings)} passed filters, added {added} new to CSV.")
+    logger.info(f"[{source_name}] Analyzed {len(raw_listings)} listings, found {len(valid_listings)} matches, and saved {added} brand new ones!")
     return added
 
 def run_scrapers(dry_run=False, specific_source=None):
@@ -58,8 +61,9 @@ def run_scrapers(dry_run=False, specific_source=None):
         "apna": scrape_apna,
         "cutshort": scrape_cutshort,
         "international": scrape_international,
-        "linkedin": scrape_linkedin,
-        "indeed": scrape_indeed,
+        "linkedin": scrape_linkedin,          # NEW: direct LinkedIn Jobs page
+        "remotive": scrape_remotive,           # Remote jobs RSS (was 'linkedin')
+        "weworkremotely": scrape_weworkremotely, # Remote jobs RSS (was 'indeed')
         "bigtech": scrape_bigtech,
         "niche": scrape_niche_boards,
         "aggregators": scrape_aggregators,
@@ -71,22 +75,18 @@ def run_scrapers(dry_run=False, specific_source=None):
         if specific_source in scrapers:
             scrapers = {specific_source: scrapers[specific_source]}
         else:
-            print(f"Source {specific_source} not found.")
+            logger.error(f"Source {specific_source} not found.")
             return
 
     for source_name, scraper_func in scrapers.items():
         try:
-            print(f"Starting {source_name}...")
+            logger.info(f"🚀 Starting to check {source_name} for new opportunities...")
             listings = scraper_func()
             if not dry_run:
                 added = process_and_save(source_name, listings)
                 total_added += added
             else:
-                print(f"[DRY-RUN] {source_name}: Found {len(listings)} raw listings.")
-                if listings:
-                    print("- Sample -")
-                    import pprint
-                    pprint.pprint(listings[0])
+                logger.info(f"[{source_name}] DRY-RUN: Found {len(listings)} raw listings.")
         except Exception as e:
             logger.error(f"Failed {source_name}: {str(e)}")
             failed_sources.append(source_name)
@@ -94,16 +94,12 @@ def run_scrapers(dry_run=False, specific_source=None):
     if not dry_run:
         update_run_history(total_added, failed_sources)
         
-    print("\n========================================")
-    print("🤖 AI/ML Internship Scraper — Daily Run")
-    from datetime import datetime
-    print(f"📅 Date: {datetime.now().strftime('%Y-%m-%d')} | ⏰ Time: {datetime.now().strftime('%I:%M %p')}")
-    print(f"✅ Sources scraped: {len(scrapers) - len(failed_sources)}/{len(scrapers)}")
-    print(f"❌ Sources failed:  {len(failed_sources)} (see scraper_errors.log)")
+    logger.info("========================================")
+    logger.info("✅ All scraping tasks completed!")
+    logger.info(f"Sources checked: {len(scrapers) - len(failed_sources)} successful, {len(failed_sources)} failed.")
     if not dry_run:
-        print(f"🆕 New listings found: {total_added}")
-        print("💾 Saved to: internships.csv")
-    print("========================================")
+        logger.info(f"🎉 Total new internships added today: {total_added}")
+    logger.info("========================================")
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Automated AI/ML Internship Scraper")

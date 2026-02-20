@@ -18,13 +18,13 @@ def scrape_naukri():
     
     with sync_playwright() as p:
         browser = p.chromium.launch(
-            headless=True,
+            headless=False,  # Visible so user can fill CAPTCHA
             args=get_playwright_stealth_args()
         )
         # Using a more robust context for Naukri to bypass basic blockers
         context = browser.new_context(
             user_agent='Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-            viewport={'width': 1920, 'height': 1080}
+            viewport={'width': 1440, 'height': 900}
         )
         page = context.new_page()
         Stealth().apply_stealth_sync(page)
@@ -32,12 +32,13 @@ def scrape_naukri():
         url = "https://www.naukri.com/ai-ml-internship-jobs-in-india"
         
         try:
-            print(f"Scraping Naukri: {url} ...")
+            logger.info(f"Scraping Naukri: {url} ...")
             page.goto(url, timeout=45000)
             
-            # Wait for job list
+            # Wait for job list — give user time to solve CAPTCHA if shown
+            logger.warning("⏳ Naukri: Browser is open. If a CAPTCHA appears, please solve it within 45 seconds...")
             try:
-                page.wait_for_selector(".srp-jobtuple-wrapper", timeout=20000)
+                page.wait_for_selector(".srp-jobtuple-wrapper", timeout=45000)
             except Exception:
                 logger.warning("Naukri: Timeout waiting for job tuples. Maybe captcha or no results.")
                 
@@ -66,9 +67,11 @@ def scrape_naukri():
                     location_type = "Remote" if "Remote" in location or "Work From Home" in location else "India"
                     
                     exp_elem = listing.find("span", class_="expwdth")
-                    if exp_elem and "0" not in exp_elem.text and "fresher" not in exp_elem.text.lower():
-                        # Internships should ideally be for 0-1 years usually, but if it says "5-10 Yrs" we skip
-                        continue
+                    if exp_elem:
+                        # Only skip if explicitly senior-level experience (5+ years)
+                        exp_text = exp_elem.text.lower()
+                        if re.search(r'[5-9]\d*\s*yr|10\+?\s*yr', exp_text):
+                            continue
                         
                     stipend_elem = listing.find("span", class_="ni-job-tuple-icon-srp-rupee")
                     stipend = stipend_elem.find_next_sibling("span").text.strip() if stipend_elem and stipend_elem.find_next_sibling("span") else ""

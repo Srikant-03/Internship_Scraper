@@ -83,10 +83,10 @@ def scrape_shine():
             human_delay(3.0, 5.0)
             
             selectors = {
-                "card_tag": "div", "card_class": "jobCard",
-                "title_tag": "h2", "title_class": "",
-                "comp_tag": "div", "comp_class": "jobCard_jobCard_cName",
-                "loc_tag": "div", "loc_class": "jobCard_locationIcon"
+                "card_tag": "div", "card_class": "jobCardNova_bigCard",
+                "title_tag": "h3", "title_class": "",
+                "comp_tag": "span", "comp_class": "jobCardNova_bigCardTopTitleName",
+                "loc_tag": "div", "loc_class": "jobCardNova_bigCardCenterListLoc"
             }
             results = parse_job_card(page.content(), selectors, "Shine", "https://www.shine.com")
             browser.close()
@@ -132,13 +132,62 @@ def scrape_apna():
             page.goto(url, timeout=30000)
             human_delay(4.0, 7.0)
             
-            selectors = {
-                "card_tag": "div", "card_class": "JobCard",
-                "title_tag": "h3", "title_class": "",
-                "comp_tag": "p", "comp_class": "Company",
-                "loc_tag": "div", "loc_class": "Location"
-            }
-            results = parse_job_card(page.content(), selectors, "Apna", "https://apna.co")
+            html = page.content()
+            soup = BeautifulSoup(html, "lxml")
+            
+            # Apna has overlapping divs with data-testid='job-card' so we grab unique links
+            cards = []
+            for a in soup.find_all("a"):
+                href = a.get("href", "")
+                if href and "/job/" in href:
+                    if a.find(attrs={"data-testid": "job-title"}):
+                        cards.append(a)
+                        
+            for listing in cards:
+                try:
+                    title_elem = listing.find(attrs={"data-testid": "job-title"})
+                    if not title_elem: continue
+                    role_title = title_elem.text.strip()
+                    
+                    comp_elem = listing.find(attrs={"data-testid": "company-title"})
+                    company_name = comp_elem.text.strip() if comp_elem else "Unknown Company"
+                    
+                    loc_elem = listing.find(attrs={"data-testid": "job-location"})
+                    location = loc_elem.text.strip() if loc_elem else "India"
+                    location_type = "Remote" if "Remote" in location or "Work From Home" in location else "India"
+                    
+                    sal_elem = listing.find(attrs={"data-testid": "job-salary"})
+                    stipend = sal_elem.text.strip() if sal_elem else ""
+                    
+                    apply_link = "https://apna.co" + listing["href"] if "href" in listing.attrs else ""
+                    
+                    org_type = "Company"
+                    role_type = "Research" if "research" in role_title.lower() else "Applied"
+                    match_score = calculate_match_score(role_title, ["AI/ML"], org_type, 0.0)
+                    
+                    id_hash = hashlib.md5(f"{company_name}-{role_title}-Apna".encode()).hexdigest()
+                    
+                    results.append({
+                        "id": id_hash,
+                        "company_name": company_name,
+                        "role_title": role_title,
+                        "location": location,
+                        "location_type": location_type,
+                        "duration": "",
+                        "stipend": stipend,
+                        "stipend_numeric": 0.0,
+                        "stipend_currency": "INR",
+                        "required_skills": "AI/ML", 
+                        "application_deadline": "", 
+                        "apply_link": apply_link,
+                        "source_platform": "Apna",
+                        "date_scraped": datetime.now().strftime("%Y-%m-%d"),
+                        "org_type": org_type,
+                        "role_type": role_type,
+                        "match_score": match_score
+                    })
+                except Exception as e:
+                    continue
             browser.close()
         except Exception as e:
             logger.error(f"Apna error: {e}")

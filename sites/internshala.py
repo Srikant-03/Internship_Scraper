@@ -42,7 +42,7 @@ def scrape_internshala():
             page_num = 1
             while True:
                 url = f"{base_url}page-{page_num}/" if page_num > 1 else base_url
-                print(f"Scraping Internshala: {url} ...")
+                logger.info(f"Scraping Internshala: {url} ...")
                 
                 try:
                     # Internshala can block simple bots, fake user agent or simple timeout wait is good
@@ -71,16 +71,13 @@ def scrape_internshala():
                             
                             loc_elem = listing.find("div", id="location_names")
                             if not loc_elem:
-                                loc_elem = listing.locator(".loc_container a").first
-                            location = loc_elem.inner_text().strip() if loc_elem.count() > 0 else "India"
+                                container = listing.find(class_="loc_container")
+                                loc_elem = container.find("a") if container else None
+                            location = loc_elem.text.strip() if loc_elem else "India"
                             
                             # NLP Date Check for Summer
-                            duration_elem = listing.locator(".item_body").nth(1)
-                            duration_text = duration_elem.inner_text().strip() if duration_elem.count() > 0 else ""
-                            
-                            # Check for starts-date logic if present (Internshala usually says "Starts Immediately" but sometimes gives dates)
-                            starts_elem = listing.locator(".item_body").first
-                            starts_text = starts_elem.inner_text().strip() if starts_elem.count() > 0 else ""
+                            item_bodies = listing.find_all("div", class_="item_body")
+                            starts_text = item_bodies[0].text.strip() if len(item_bodies) > 0 else ""
                             
                             if not parse_summer_dates(starts_text):
                                 continue # Fails summer constraint
@@ -141,7 +138,7 @@ def scrape_internshala():
                             
                             all_internships.append(record)
                         except Exception as e:
-                            logger.error(f"Error parsing listing on {url}: {e}")
+                            logger.exception(f"Error parsing listing on {url}: {e}")
                             
                     # To not overload the server
                     human_delay(1.5, 3.5)

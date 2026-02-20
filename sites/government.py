@@ -21,7 +21,7 @@ def scrape_government():
     for portal in portals:
         url = portal["url"]
         name = portal["name"]
-        print(f"Scraping Government Portal: {name} ...")
+        logger.info(f"Scraping Government Portal: {name} ...")
         
         try:
             # For static scraping, we just pull the html and create a generic notification record
