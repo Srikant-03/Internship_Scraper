@@ -118,6 +118,20 @@ async function loadData() {
         const data = await res.json();
         allInternships = data;
 
+        // ----------------------------------------------------------
+        // Deduplicate by 'id' field (100% safe — IDs are hash-based)
+        // ----------------------------------------------------------
+        const seenIds = new Set();
+        allInternships = allInternships.filter(item => {
+            if (!item.id || seenIds.has(item.id)) return false;
+            seenIds.add(item.id);
+            return true;
+        });
+
+        // Fix location_type based on actual URL / location text
+        // (some scrapers tag by query region, not actual listing location)
+        normalizeLocationTypes(allInternships);
+
         document.getElementById("total-count").innerText = allInternships.length;
 
         // Populate sources
@@ -206,8 +220,13 @@ function renderListings() {
         const roleBadge = item.role_type ? `<span class="tag tag-role"><i class="ph ph-flask"></i> ${item.role_type}</span>` : '';
 
         const card = document.createElement("div");
-        card.className = "card visible";
-        card.style.animationDelay = `${index * 0.05}s`;
+        // Only animate first 30 cards — rest are instantly visible
+        if (index < 30) {
+            card.className = "card animate-in";
+            card.style.animationDelay = `${(index * 0.04).toFixed(2)}s`;
+        } else {
+            card.className = "card";  // immediately visible
+        }
         card.innerHTML = `
             ${isNewHtml}
             ${scoreBadge}
@@ -228,13 +247,62 @@ function renderListings() {
             </div>
             
             <div class="card-footer">
-                <span class="source-info">Via ${item.source_platform} • ${item.date_scraped}</span>
+                <span class="source-info">Via ${item.source_platform} &bull; ${item.date_scraped}</span>
                 <a href="${item.apply_link}" target="_blank" class="apply-btn">View Details</a>
             </div>
         `;
         container.appendChild(card);
     });
 }
+
+/**
+ * Re-classify location_type based on actual URL domain and location text.
+ * This overrides query-based tagging (e.g. a Virginia Tech page found via
+ * an "India Edu" query must not be labelled location_type="India").
+ */
+function normalizeLocationTypes(items) {
+    const INDIA_DOMAINS = ['.ac.in', '.edu.in', '.co.in', '.res.in', '.gov.in', '.nic.in', '.org.in', '.net.in'];
+    const INDIA_CITIES = ['bangalore', 'bengaluru', 'mumbai', 'delhi', 'hyderabad', 'pune', 'chennai', 'kolkata',
+        'ahmedabad', 'noida', 'gurgaon', 'gurugram', 'india'];
+    const REMOTE_TERMS = ['remote', 'work from home', 'wfh', 'anywhere', 'distributed'];
+    // Foreign TLDs that should NEVER be India
+    const FOREIGN_DOMAINS = ['.edu', '.gov', '.ac.uk', '.co.uk', '.de', '.fr', '.nl', '.se',
+        '.fi', '.dk', '.no', '.ch', '.at', '.be', '.sg', '.jp', '.kr',
+        '.cn', '.au', '.nz', '.ca', '.ae', '.sa', '.il', '.br'];
+
+    items.forEach(item => {
+        const url = (item.apply_link || '').toLowerCase();
+        const loc = (item.location || '').toLowerCase();
+        const comp = (item.company_name || '').toLowerCase();
+
+        // REMOTE check first
+        if (REMOTE_TERMS.some(t => loc.includes(t) || comp.includes(t))) {
+            item.location_type = 'Remote';
+            return;
+        }
+
+        // INDIA check: URL domain or location text
+        const isIndiaUrl = INDIA_DOMAINS.some(d => url.includes(d));
+        const isIndiaLoc = INDIA_CITIES.some(c => loc.includes(c));
+        // Explicit foreign domain → definitely NOT India
+        const isForeignUrl = FOREIGN_DOMAINS.some(d => {
+            // match domain suffix precisely: .edu must not match .edu.in
+            const idx = url.indexOf(d);
+            if (idx === -1) return false;
+            // Check the char immediately after is not a letter (i.e., .edu not followed by .in)
+            const after = url[idx + d.length];
+            return !after || !/[a-z]/.test(after);
+        });
+
+        if (isForeignUrl && !isIndiaUrl) {
+            item.location_type = 'International';
+        } else if (isIndiaUrl || isIndiaLoc) {
+            item.location_type = 'India';
+        }
+        // otherwise keep stored value
+    });
+}
+
 
 async function triggerScraper() {
     setScrapingState(true);

@@ -351,7 +351,7 @@ body {
     /* tabs never shrink */
 }
 
-/* Cards */
+/* Cards — always visible; only first 30 get entrance animation */
 .card {
     background: rgba(28, 31, 38, 0.6);
     backdrop-filter: blur(12px);
@@ -359,17 +359,35 @@ body {
     border: 1px solid rgba(255, 255, 255, 0.05);
     border-radius: 12px;
     padding: 20px;
-    transition: all 0.4s cubic-bezier(0.25, 0.8, 0.25, 1);
+    transition: transform 0.3s cubic-bezier(0.25, 0.8, 0.25, 1),
+        box-shadow 0.3s ease,
+        border-color 0.3s ease,
+        background 0.3s ease;
     display: flex;
     flex-direction: column;
     position: relative;
-    overflow: hidden;
-    opacity: 0;
-    transform: translateY(20px);
+    overflow: visible;
+    /* MUST be visible so corner New badge isn't clipped */
+    opacity: 1;
+    /* Always visible — no delay-based disappearing */
+    transform: translateY(0);
 }
 
-.card.visible {
-    animation: fadeUpIn 0.5s ease-out forwards;
+/* Clip internal background glow without clipping badges */
+.card-inner-clip {
+    position: absolute;
+    inset: 0;
+    border-radius: 12px;
+    overflow: hidden;
+    pointer-events: none;
+    z-index: 0;
+}
+
+/* Only first 30 cards animate in */
+.card.animate-in {
+    opacity: 0;
+    transform: translateY(16px);
+    animation: fadeUpIn 0.35s ease-out forwards;
 }
 
 @keyframes fadeUpIn {
@@ -399,15 +417,17 @@ body {
 }
 
 .card:hover {
-    transform: translateY(-5px) scale(1.02);
-    background: rgba(35, 39, 48, 0.8);
-    box-shadow: 0 15px 30px rgba(0, 0, 0, 0.4), 0 0 20px rgba(99, 102, 241, 0.15);
+    transform: translateY(-4px);
+    background: rgba(35, 39, 48, 0.9);
+    border-color: rgba(99, 102, 241, 0.45);
+    box-shadow: 0 12px 28px rgba(0, 0, 0, 0.45),
+        0 0 0 1px rgba(99, 102, 241, 0.25),
+        0 0 22px rgba(99, 102, 241, 0.12);
 }
 
+/* ::before glow is now opt-in on hover only via border-color */
 .card:hover::before {
-    background: linear-gradient(135deg, rgba(99, 102, 241, 0.8), rgba(168, 85, 247, 0.8), rgba(99, 102, 241, 0.8));
-    animation: borderRotate 3s linear infinite;
-    background-size: 200% 200%;
+    background: transparent;
 }
 
 @keyframes borderRotate {
