@@ -23,7 +23,7 @@ from loguru import logger
 import re
 
 from filters import calculate_match_score
-from scraper_utils import human_delay, get_playwright_stealth_args
+from scraper_utils import human_delay, get_playwright_stealth_args, action_required, action_resolved
 from tenacity import retry, wait_exponential, stop_after_attempt
 
 URLS = [
@@ -59,7 +59,7 @@ def scrape_unstop():
 
     with sync_playwright() as p:
         browser = p.chromium.launch(
-            headless=False,  # Visible so user can solve CAPTCHAs
+            headless=True,  # Fully automated, no UI shown
             args=get_playwright_stealth_args(),
         )
         context = browser.new_context(
@@ -79,14 +79,13 @@ def scrape_unstop():
                 page.goto(url, timeout=45000)
 
                 # Wait for cards — give user time to solve CAPTCHA if shown
-                logger.warning(
-                    "⏳ Unstop: Browser is open. If a CAPTCHA appears, "
-                    "please solve it within 20 seconds..."
-                )
+                action_required("Unstop", "Browser is open. If a CAPTCHA appears, please solve it within 45 seconds.", "captcha")
                 try:
-                    page.wait_for_selector("a.item", timeout=20000)
+                    page.wait_for_selector("a.item", timeout=45000)
                 except Exception:
                     logger.warning(f"Unstop: Timeout or no 'a.item' cards on {url}")
+                finally:
+                    action_resolved("Unstop")
 
                 # Scroll to load lazy content
                 for _ in range(4):
@@ -115,6 +114,11 @@ def scrape_unstop():
                         if uid in seen:
                             continue
                         seen.add(uid)
+
+                        # Check if closed
+                        card_text = card.get_text(separator=" ", strip=True).lower()
+                        if "no longer accepting" in card_text or "expired" in card_text or "closed" in card_text:
+                            continue
 
                         # Title
                         h3 = card.find("h3")

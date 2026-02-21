@@ -1,6 +1,5 @@
 # 🤖 AI/ML Internship Radar
-
-> **A production-ready, fully automated web scraper that discovers AI/ML internship opportunities from 60+ global sources — India and Worldwide — and presents them in a stunning real-time dashboard.**
+### *Your personal robot that hunts down AI internships while you sleep.*
 
 [![Python 3.9+](https://img.shields.io/badge/python-3.9+-blue.svg)](https://python.org)
 [![Flask](https://img.shields.io/badge/flask-3.x-green.svg)](https://flask.palletsprojects.com)
@@ -9,390 +8,279 @@
 
 ---
 
-## 📸 Dashboard Preview
+## � The Problem
 
-The dashboard features a Bloomberg-inspired dark UI with:
-- 🌍 **Region Tab Bar** — instantly filter by Everything / 🇮🇳 India / 🌐 Global / 📡 Remote
-- 📊 **Match Score Badges** — every listing scored out of 100 for AI/ML relevance
-- ⚡ **Real-time Logs** — view live scraper activity as it runs
-- 🎛️ **Smart Sidebar Filters** — Source, Location Type, Stipend, Org Type, Role Level
+You're a CS/AI student trying to land an internship for summer 2026.
 
----
+So you open 17 tabs — LinkedIn, Internshala, Naukri, Unstop, some obscure university portal — spend 3 hours copy-pasting, and realize half the listings are from 2024.
 
-## 🎯 What It Does
-
-This system automatically:
-1. **Scrapes 60+ platforms** for AI/ML internship listings worldwide
-2. **Filters** by AI/ML relevance, stipend thresholds, and summer date windows
-3. **Deduplicates** across all sources using content hashing
-4. **Scores** every listing with a 0–100 AI/ML match score
-5. **Presents** results in a live web dashboard at `http://localhost:5000`
-6. **Auto-schedules** daily scrapes at 8:00 AM
+**There's a better way.**
 
 ---
 
-## 🔍 Data Sources (60+ Platforms)
+## � What This Does
 
-### 🇮🇳 India Platforms
-| Source | Method | Notes |
-|--------|--------|-------|
-| **Internshala** | Playwright (stealth) | Largest Indian internship platform |
-| **Unstop** | Playwright (headless=False) | Tech-focused, may require CAPTCHA |
-| **Naukri.com** | Playwright (headless=False) | India's largest job board |
-| **LinkedIn Jobs** | Playwright (headless=False) | 7 topics × 5 Indian cities |
-| **Shine.com** | Requests + BeautifulSoup | Mid-level jobs board |
-| **Foundit (Monster India)** | Requests + BeautifulSoup | - |
-| **Apna** | Playwright | Blue-collar + tech roles |
-| **CutShort** | Requests | Startup-focused |
-| **DRDO / Government Labs** | Requests | Govt research portals |
-| **Search Engine (DDG Dorks)** | DuckDuckGo API | Hidden opportunities, .ac.in sites |
+This project is a **fully automated web scraping system** that:
 
-### 🌐 International Platforms
-| Source | Method | Coverage |
-|--------|--------|----------|
-| **LinkedIn Jobs** | Playwright | Worldwide, 15+ European countries, US cities, Canada, Asia |
-| **Remotive.com RSS** | RSS Feed | AI/ML remote internships |
-| **WeWorkRemotely RSS** | RSS Feed | Remote programming & data science |
-| **WeWorkRemotely** | Playwright | AI/ML keyword search |
-| **Universities (Dynamic)** | DuckDuckGo (54 queries) | See below ↓ |
+- 🕷️ **Scrapes 60+ platforms simultaneously** — India AND worldwide
+- 🧠 **Filters by actual AI/ML relevance** — not just "software" jobs
+- 🚫 **Auto-rejects closed, expired, and past-year listings** — no 2024 garbage slipping through
+- 📊 **Scores every listing from 0–100** based on your profile
+- �️ **Streams everything to a beautiful dashboard** at `http://localhost:5000`
+- ⏰ **Runs daily at 8 AM automatically** (set it, forget it)
+
+You click one button. The robot does the rest.
+
+---
+
+## � The Dashboard
+
+It looks like something Bloomberg would build:
+
+- 🌍 **Region Tabs** — Everything / 🇮🇳 India / 🌐 Global / 📡 Remote — click to instantly switch
+- 🔥 **Match Score Badges** — Glowing green means high AI/ML relevance. Red means meh.
+- ⚡ **Live Log Terminal** — Watch the scraper work in real-time right inside the browser
+- 🗑️ **Clear Database Button** — Red trash icon wipes everything so you can start 100% fresh
+
+Cards are sorted and rendered using CSS Grid `order` properties — which means **zero flickering**, even with 300+ listings live-updating every 4 seconds. Butter smooth.
+
+---
+
+## ⚠️ But Wait — Some Sites Are Sneaky
+
+LinkedIn, Naukri, and Unstop have bot blockers. So the scraper:
+
+1. Opens these browsers **visibly** (not headless) so you can see what's happening
+2. Shows you a glowing orange **"Action Required"** banner in the dashboard if a CAPTCHA appears
+3. Waits **45 seconds** for you to solve it (or it auto-skips and moves on)
+4. You click **Done** → banner disappears → scraper resumes silently
+
+It's like pair-programming with a robot.
+
+---
+
+## �️ Where It Scrapes (60+ Sources)
+
+### 🇮🇳 India
+| Platform | How | Notes |
+|----------|-----|-------|
+| **Internshala** | Playwright stealth | India's #1 internship platform |
+| **Unstop** | Playwright headless=False | Scans for "closed" tags — won't waste your time |
+| **Naukri.com** | Playwright headless=False | India's largest job board |
+| **LinkedIn Jobs** | Playwright headless=False | 100+ search configs across Indian cities |
+| **Shine / Foundit / Apna / CutShort** | Requests + BS4 | Four aggregators at once |
+| **DRDO, ISRO, Govt Labs** | Requests | Real government research portals |
+| **DuckDuckGo Dorks** | DDG API | Hidden `.ac.in` and `.res.in` gems |
+
+### 🌐 International
+| Platform | How | Coverage |
+|----------|-----|----------|
+| **LinkedIn Jobs** | Playwright | 15+ EU countries, US, Asia |
+| **Remotive + WeWorkRemotely** | RSS + Playwright | Best remote AI/ML listings |
+| **DuckDuckGo University Search** | DDG API | **54 search queries** — see list below |
 | **BigTech Careers** | Requests | Google, Meta, Microsoft, Apple, Amazon |
-| **Niche AI Boards** | Requests | ML-specific job boards |
-| **Aggregators** | Requests | Indeed-style aggregators |
+| **Niche AI Boards** | Requests | ML-specific boards you've never heard of |
 
-### 🎓 University & Research Lab Discovery (Dynamic)
+### 🎓 University & Research Lab Discovery
 
-The university scraper runs **54 targeted DuckDuckGo searches** that refresh on every run — no hardcoded lists:
+The university scraper fires **54 live DuckDuckGo searches** every run. No hardcoded links. It dynamically discovers current positions at:
 
-| Region | Examples |
-|--------|---------|
-| 🇮🇳 India | IIT, IISc, IIIT, TIFR, DRDO, ISRO, ISI |
-| 🇫🇮 Nordic | **Aalto University**, FCAI, KTH, Chalmers, DTU, NTNU, Helsinki |
-| 🇩🇪 Germany/DACH | DAAD RISE, Max Planck, TU Munich, RWTH, ETH Zurich, EPFL, IST Austria |
-| 🇬🇧 UK | Oxford, Cambridge, UCL, Imperial, Edinburgh |
-| 🇫🇷🇳🇱 France/NL | Inria, TU Delft, CWI Amsterdam |
-| 🇨🇳 China | Tsinghua, Peking, SJTU, USTC, ZJU, Fudan, CAS |
-| 🇸🇬 Singapore | NUS, NTU, A*STAR, AI Singapore |
-| 🇯🇵🇰🇷 Japan/Korea | RIKEN AIP, NII, KAIST, NAVER AI Lab, Samsung |
-| 🇦🇺 Australia | ANU, Melbourne, CSIRO Data61 |
-| 🇨🇦 Canada | Mitacs, Vector Institute, Mila, UBC, McGill |
-| 🇺🇸 USA | MIT, Stanford, CMU, Berkeley, Cornell, UW, Georgia Tech, NSF REU |
-| 🇺🇸 US National Labs | Oak Ridge, Argonne, PNNL, Sandia, DOE SULI |
-| 🌐 Global AI Labs | OpenAI, DeepMind, Anthropic, Meta FAIR, Google, NVIDIA, Adobe, IBM, AI2 |
-| 🌍 Misc | CERN, ESA, KAUST (UAE), Technion, AIMS Africa, USP Brazil |
+🇮🇳 `IIT, IISc, IIIT, TIFR, DRDO, ISRO`
+🇩🇪 `DAAD RISE, Max Planck, TU Munich, ETH Zurich, EPFL`
+🇬🇧 `Oxford, Cambridge, UCL, Imperial`
+🇺🇸 `MIT, Stanford, CMU, Berkeley, Cornell, NSF REU, DOE SULI`
+🌐 `OpenAI, DeepMind, Anthropic, Google DeepMind, Meta FAIR, NVIDIA`
+🇨🇦 `Mitacs, Mila, Vector Institute, UBC`
+🇸🇬 `NUS, NTU, A*STAR, AI Singapore`
+🌍 `CERN, ESA, KAUST, Technion, KAIST, RIKEN AIP, CSIRO`
+
+Every run = fresh results. Zero maintenance.
 
 ---
 
-## 🏗️ Project Structure
+## ⚙️ How the Filtering Works (The Smart Part)
+
+### 🔑 AI/ML Keyword Gate
+Every listing must contain at least one of **50+ AI/ML terms** to even get in the door:
+`machine learning` / `deep learning` / `computer vision` / `LLM` / `generative AI` / `NLP` / `transformers` / `reinforcement learning` / `AI research` and more.
+
+And if the title says `senior`, `5+ years`, `manager`, `PhD required`, or `full-time` — **auto-rejected.** You're looking for internships, not a job for someone with a decade of experience.
+
+### 📅 Past Year Defense
+Aggregator sites often surface old 2024/2025 listings in their search results. The filter dynamically reads `datetime.now()`, computes the current target year, and then **physically scans the raw listing text** for any stale year string. If it finds `2024` or `2025` hiding in there — the card is shredded before it ever hits your screen.
+
+### 🗓️ Summer Date NLP
+- Listings must start **on or after May 20** of the upcoming summer
+- But terms like `"immediately"`, `"rolling"`, `"ASAP"`, or `"flexible"` are always allowed — because a good opportunity isn't date-dependent
+- Powered by `dateparser`, a real NLP date extraction library
+
+### 💰 Stipend Check
+- **India**: Minimum ₹5,000/month (or unspecified = OK)
+- **International**: Any compensation is fine
+- Explicit `"Unpaid"` or `0` always filtered out
+
+---
+
+## �️ How to Set It Up (Actually Simple)
+
+**You need:** Python 3.9+ and Google Chrome. That's it.
+
+```bash
+# 1. Clone the project
+git clone https://github.com/YOUR_USERNAME/ai-ml-internship-radar.git
+cd ai-ml-internship-radar/internship_scraper
+
+# 2. Create virtual environment
+python -m venv venv
+venv\Scripts\activate      # Windows
+source venv/bin/activate   # Mac/Linux
+
+# 3. Install everything
+pip install -r requirements.txt
+playwright install chromium
+
+# 4. Run it
+python app.py
+```
+
+Open **http://localhost:5000** → click **"Run Scraper Now"** → go make tea ☕
+
+---
+
+## 🎮 Using the Dashboard
+
+**Buttons in the top-right corner:**
+
+| Button | What it does |
+|--------|-------------|
+| 🔄 Refresh | Reload the current data from CSV |
+| 🗑️ Trash (red) | Wipe the entire database and start fresh |
+| ℹ️ Info | Open the usage guide modal |
+
+**Sidebar filters** let you drill down by:
+- 🌍 Location (India / Remote / Global)
+- 💵 Stipend bracket (Any / Paid / >₹10K / >₹20K / >₹50K)
+- 🏛️ Org type (Company / Institution / Government)
+- 🔬 Role type (Research Core / Applied Engineering)
+- 📡 Source platform (per-source dropdown)
+
+**Match Score legend:**
+- 🟢 **≥80** — Dream listing. Apply immediately.
+- 🟡 **60–79** — Good match. Worth a look.
+- 🔴 **<60** — Peripheral. Only if you're desperate.
+
+---
+
+## 🥷 Anti-Bot Tactics
+
+The scraper doesn't act like a robot (ironically). It uses:
+
+- **Playwright Stealth Plugin** — patches browser fingerprints, defeats bot detection
+- **Random human delays** — 1.5–4.5 second waits between clicks
+- **Rotating User-Agents** — realistic Chrome UA strings on Windows/Mac
+- **Random scrolling** — simulates actually reading the page
+- **Visible browser for protected sites** — you intervene when needed
+- **Exponential backoff retries** — fails gracefully on network blips
+
+---
+
+## 🗂️ Project Structure (If You Want to Poke Around)
 
 ```
 internship_scraper/
-├── app.py                    # Flask web server + Socket.IO for live logs
-├── scraper.py                # Orchestrator — runs all scrapers
-├── filters.py                # AI/ML keyword filter, stipend validator, date parser
-├── output_handler.py         # CSV append with deduplication
-├── scraper_utils.py          # Human delays, Playwright stealth args
+├── app.py                 ← Flask server + all API endpoints
+├── scraper.py             ← Orchestrator: runs all scrapers in sequence
+├── filters.py             ← The brain: NLP keyword + date + stipend filters
+├── output_handler.py      ← Deduplication engine + CSV writer
+├── scraper_utils.py       ← Shared tools: delays, headers, stealth args
 │
-├── sites/                    # Individual scraper modules
-│   ├── internshala.py        # Playwright stealth — 400+ listings
-│   ├── unstop.py             # Playwright headless=False, 7 search URLs
-│   ├── naukri.py             # Playwright headless=False (CAPTCHA-aware)
-│   ├── linkedin.py           # LinkedIn PUBLIC jobs page — 80+ search configs
-│   ├── rss_feeds.py          # Remotive.com + WeWorkRemotely RSS
-│   ├── government.py         # DRDO, ISRO, Govt India portals
-│   ├── misc_india.py         # Shine, Foundit, Apna, CutShort
-│   ├── international.py      # WeWorkRemotely Playwright scraper
-│   ├── bigtech.py            # Google, Meta, Microsoft, Apple, Amazon careers
-│   ├── niche.py              # Niche AI job boards + aggregators
-│   ├── search_engine.py      # DuckDuckGo dork search (8 query patterns)
-│   └── universities.py       # Dynamic DDG search — 54 queries, global unis
+├── sites/
+│   ├── internshala.py     ← Playwright stealth scraper
+│   ├── unstop.py          ← Playwright + closed-card detection
+│   ├── naukri.py          ← CAPTCHA-aware visible browser
+│   ├── linkedin.py        ← 100+ config LinkedIn public jobs scraper
+│   ├── rss_feeds.py       ← Remotive + WeWorkRemotely RSS
+│   ├── government.py      ← DRDO, ISRO, govt portals
+│   ├── misc_india.py      ← Shine, Foundit, Apna, CutShort
+│   ├── international.py   ← WeWorkRemotely Playwright
+│   ├── bigtech.py         ← FAANG career pages
+│   ├── niche.py           ← AI-specific job boards
+│   ├── search_engine.py   ← 8 DuckDuckGo dork queries (geo-filtered)
+│   └── universities.py    ← 54 DDG searches, global university discovery
 │
-├── templates/
-│   └── index.html            # Dashboard HTML (Phosphor Icons + custom CSS)
+├── templates/index.html   ← The dashboard
+├── static/style.css       ← Bloomberg dark aesthetic, glassmorphism
+├── static/script.js       ← Live filtering, polling, XSS-safe card rendering
 │
-├── static/
-│   ├── style.css             # Bloomberg dark UI, glassmorphism, animations
-│   ├── script.js             # Live filtering, region tabs, real-time logs
-│   └── favicon.ico
-│
-├── internships.csv           # Output data file (gitignored)
-├── internships_log.json      # Run history + metadata (gitignored)
-├── scraper_run.log           # Full activity log (gitignored)
-└── scraper_errors.log        # Error log (gitignored)
+├── internships.csv        ← The database (gitignored)
+├── internships_log.json   ← Scraper memory for deduplication (gitignored)
+├── scraper_run.log        ← What the scraper did (gitignored)
+└── scraper_errors.log     ← What went wrong (gitignored)
 ```
 
 ---
 
-## ⚙️ How Filtering Works
+## � Trouble? Read This First.
 
-### 1. AI/ML Keyword Filter (`filters.py`)
-A listing must contain **at least one** of 50+ AI/ML keywords:
-- Core: `machine learning`, `deep learning`, `neural network`, `NLP`
-- Applied: `computer vision`, `reinforcement learning`, `LLM`, `generative AI`
-- Tools: `PyTorch`, `TensorFlow`, `transformers`, `scikit-learn`, `pandas`
-- Roles: `data science intern`, `AI engineer`, `ML research`
+**"No listings showing for Naukri / Unstop"**
+→ A CAPTCHA appeared and the timer ran out. Just run the scraper again and solve it when the browser pops up. You have **45 seconds**.
 
-### 2. Stipend Filter
-- **India listings**: Minimum ₹5,000/month (or unpaid is OK)
-- **International listings**: Any stipend (or unpaid research is OK)
-- Filter respects INR vs USD currencies automatically
+**"LinkedIn is showing 0 results"**
+→ LinkedIn probably showed a sign-in popup. Close it manually when the visible browser opens.
 
-### 3. Date Filter (`parse_summer_dates`)
-- Summer internships must start **on or after May 20**
-- Flexible terms like `"Immediately"`, `"ASAP"`, `"Rolling"`, `"Flexible"` are **always allowed**
+**"DuckDuckGo returned nothing"**
+→ DDG rate-limits aggressive requests. Wait 5 minutes and try again. Or increase the delay in `scraper_utils.py` → `human_delay()`.
 
-### 4. Match Scoring (`calculate_match_score`)
-Each listing gets a 0–100 score based on:
-- Number of AI/ML keywords found in title + description
-- Institution type (Research institution gets bonus)
-- Stipend level relative to tier
+**"Port 5000 is already in use"**
+→ Change the last line in `app.py` to `app.run(debug=True, port=5001)`.
+
+**"Clear button did nothing"**
+→ The scraper was probably still running. Wait for it to finish first, then clear.
 
 ---
 
-## 🚀 Setup & Installation
+## 📊 Output Format
 
-### Prerequisites
-- Python 3.9+
-- Google Chrome (for Playwright)
-- Git
+Every discovered internship is saved to `internships.csv` with:
 
-### 1. Clone the Repository
-```bash
-git clone https://github.com/YOUR_USERNAME/ai-ml-internship-radar.git
-cd ai-ml-internship-radar/internship_scraper
-```
-
-### 2. Create Virtual Environment
-```bash
-python -m venv venv
-
-# Windows
-venv\Scripts\activate
-
-# macOS/Linux
-source venv/bin/activate
-```
-
-### 3. Install Dependencies
-```bash
-pip install -r requirements.txt
-```
-
-### 4. Install Playwright Browsers
-```bash
-playwright install chromium
-```
-
-### 5. Run the App
-```bash
-python app.py
-```
-
-Open **http://localhost:5000** in your browser.
+| Field | Description |
+|-------|-------------|
+| `id` | MD5 hash for deduplication |
+| `role_title` | Job title |
+| `company_name` | Company or institution |
+| `location` | City / Country |
+| `location_type` | `India` / `International` / `Remote` |
+| `stipend` | Raw text (e.g., "₹15,000/month") |
+| `stipend_numeric` | Parsed number |
+| `apply_link` | Direct URL |
+| `source_platform` | Which scraper found it |
+| `date_scraped` | When it was discovered |
+| `org_type` | `Company` / `Institution` / `Government` |
+| `role_type` | `Research` / `Applied` |
+| `match_score` | 0–100 relevance score |
 
 ---
 
-## 🎮 Usage Guide
+## ⏰ Running on a Schedule
 
-### Running the Dashboard
-```bash
-python app.py
-```
-The dashboard auto-loads the last scrape results. Click **"Run Scraper Now"** to trigger a fresh scrape.
-
-### Running the Scraper Manually
-```bash
-# Full scrape (all sources)
-python scraper.py
-
-# Dry-run (doesn't save to CSV, just logs)
-python scraper.py --dry-run
-
-# Scrape a specific source only
-python scraper.py --source internshala
-python scraper.py --source linkedin
-python scraper.py --source universities
-python scraper.py --source naukri --dry-run
-```
-
-### Available `--source` Values
-| Source Key | Description |
-|-----------|-------------|
-| `internshala` | Internshala scraper |
-| `unstop` | Unstop scraper |
-| `naukri` | Naukri.com scraper |
-| `linkedin` | LinkedIn Jobs direct scraper (80+ configs) |
-| `remotive` | Remotive RSS feed |
-| `weworkremotely` | WeWorkRemotely RSS feed |
-| `government` | Indian government labs |
-| `shine` | Shine.com |
-| `foundit` | Foundit.in |
-| `apna` | Apna.co |
-| `cutshort` | CutShort.io |
-| `international` | WeWorkRemotely Playwright |
-| `bigtech` | FAANG + big tech careers |
-| `niche` | Niche AI boards |
-| `aggregators` | Job aggregators |
-| `universities` | Global university DDG search |
-| `search` | DuckDuckGo dork search |
-
-### Scheduling (Auto-run Daily)
-
-**Windows Task Scheduler:**
+**Windows (Task Scheduler):**
 ```powershell
-schtasks /create /tn "AI Radar Scraper" /tr "python C:\path\to\internship_scraper\scraper.py" /sc DAILY /st 08:00
+schtasks /create /tn "AI Radar" /tr "python C:\path\to\internship_scraper\scraper.py" /sc DAILY /st 08:00
 ```
 
-**Linux/macOS Cron:**
+**Mac/Linux (Cron):**
 ```bash
 0 8 * * * cd /path/to/internship_scraper && python scraper.py >> cron.log 2>&1
 ```
 
 ---
 
-## 🖥️ Dashboard Features
-
-### Region Tab Bar
-Filter instantly by choosing a region tab above the cards:
-| Tab | Filter |
-|-----|--------|
-| 🌍 Everything | All listings |
-| 🇮🇳 India | Indian locations only |
-| 🌐 Global / Abroad | International listings |
-| 📡 Remote | Fully remote positions |
-
-### Sidebar Filters
-- **Search**: Text search across role, company, and skills
-- **Location Type**: 🌍 All / 📡 Remote / 🇮🇳 India / 🌐 Global
-- **Stipend (INR)**: Any / Paid Only / >₹10K / >₹20K / >₹50K / Unpaid
-- **Source Platform**: Per-source dropdown (dynamically populated)
-- **Organization Type**: All / Company / Institution / Government
-- **Role Level**: All / Research Core / Applied Engineering
-
-### Match Score Badges
-- 🟢 **High Score (80–100)**: Strong AI/ML role, research focus, competitive stipend
-- 🟡 **Medium Score (60–79)**: Relevant role, moderate AI/ML alignment
-- 🔴 **Low Score (<60)**: Peripherally relevant
-
----
-
-## 🔒 Anti-Blocking Features
-
-The scraper uses multiple layers of anti-detection:
-
-1. **Playwright Stealth Plugin** — patches browser fingerprints
-2. **Human-like delays** — random `time.sleep()` between 1–5 seconds per action
-3. **Realistic User-Agents** — Chrome 122 Windows 10 UA strings
-4. **Random scrolling** — simulates reading behavior
-5. **Visible Browser Mode** — Naukri, Unstop, and LinkedIn run with `headless=False` so **you can manually solve CAPTCHAs** if they appear (45-second window)
-6. **Tenacity retry** — automatic retry with exponential backoff on failures
-
----
-
-## 🛠️ Configuration
-
-Key settings are in `filters.py`:
-
-```python
-# Minimum stipend for Indian internships (INR/month)
-MIN_INDIA_STIPEND = 5000
-
-# AI/ML keywords required in title/description
-KEYWORDS = ["machine learning", "deep learning", "NLP", ...]
-
-# Summer date filter — internships must start from:
-SUMMER_START = datetime(current_year, 5, 20)
-
-# Flex terms always allowed regardless of date
-ALLOW_TERMS = ["immediately", "asap", "rolling", "flexible", "ongoing"]
-```
-
----
-
-## 📦 Requirements
-
-```
-flask
-flask-socketio
-playwright
-playwright-stealth
-beautifulsoup4
-lxml
-requests
-ddgs                # DuckDuckGo search API
-duckduckgo-search   # Legacy fallback
-feedparser          # RSS parsing
-pandas
-loguru              # Structured logging
-tenacity            # Retry logic
-schedule            # Daily scheduling
-```
-
----
-
-## 🔧 Troubleshooting
-
-### "No listings found" for Naukri / Unstop
-These sites use CAPTCHAs. When the browser window opens, solve the CAPTCHA within:
-- **Naukri**: 45 seconds
-- **Unstop**: 20 seconds
-
-### LinkedIn shows 0 results
-LinkedIn may show a sign-in modal. The scraper waits 8–12 seconds after page load — close the popup manually when it appears.
-
-### DuckDuckGo returning 0 results
-DDG has rate limits. Add a longer delay in `scraper_utils.py` `human_delay()` or wait a few minutes before re-running.
-
-### Port 5000 already in use
-Change the port in `app.py`:
-```python
-socketio.run(app, host="0.0.0.0", port=5001, debug=False)
-```
-
----
-
-## 📄 Output Format
-
-Results are saved to `internships.csv` with these columns:
-
-| Column | Description |
-|--------|-------------|
-| `id` | MD5 hash — used for deduplication |
-| `company_name` | Company or institution name |
-| `role_title` | Job title |
-| `location` | City/Country |
-| `location_type` | `India` / `International` / `Remote` |
-| `duration` | Internship duration |
-| `stipend` | Raw stipend text |
-| `stipend_numeric` | Numeric value (INR or USD) |
-| `stipend_currency` | `INR` or `USD` |
-| `required_skills` | Skills mentioned |
-| `application_deadline` | Deadline date |
-| `apply_link` | Direct application URL |
-| `source_platform` | Which scraper found it |
-| `date_scraped` | Date of discovery |
-| `org_type` | `Company` / `Institution` / `Government` |
-| `role_type` | `Research` / `Applied` |
-| `match_score` | 0–100 AI/ML relevance score |
-
----
-
-## 🤝 Contributing
-
-1. Fork the repository
-2. Add a new scraper in `sites/yoursite.py`
-3. Register it in `scraper.py`'s `scrapers` dict
-4. Submit a pull request
-
-**Adding a new scraper:** Follow the pattern in any existing `sites/*.py` file — return a list of dicts matching the output schema above.
-
----
-
 ## 📜 License
 
-MIT License — free to use, modify, and distribute.
+MIT — do whatever you want with it.
 
 ---
 
 ## ⚠️ Disclaimer
 
-This tool is for **personal educational use** only. Respect each website's `robots.txt` and Terms of Service. The included rate limiting and human-like delays help ensure respectful usage. Do not use this tool for commercial scraping or at high frequencies.
+This was built for personal use to find internships. Please don't hammer servers at high frequency or use this commercially. The rate limiting is there for a reason — be a decent human to the websites you're scraping.

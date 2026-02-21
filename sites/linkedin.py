@@ -24,7 +24,6 @@ from loguru import logger
 
 from filters import calculate_match_score
 from scraper_utils import human_delay, get_playwright_stealth_args
-from tenacity import retry, wait_exponential, stop_after_attempt
 
 # ── Every major location × every major AI/ML keyword ─────────────────────────
 # LinkedIn's f_JT=I = Internship job type, f_E=1 = Entry level
@@ -141,18 +140,33 @@ def _close_popups(page):
         pass
 
 
-@retry(wait=wait_exponential(multiplier=1, min=3, max=15), stop=stop_after_attempt(3))
-def scrape_linkedin():
+def scrape_linkedin(config=None):
     """
     Scrapes LinkedIn public job search pages for AI/ML internships.
-    Browser is visible so the user can close popups or solve CAPTCHAs.
+    Runs fully headless. Filters internal query list based on given config.
     """
+    if config is None:
+        config = {
+            "regions": ["india", "worldwide", "usa", "europe", "remote"],
+            "topics": ["ml", "ai", "nlp", "cv", "ds", "research", "llm/genai"]
+        }
+    
+    default_regions = ["india", "worldwide", "usa", "europe", "remote"]
+    default_topics = ["ml", "ai", "nlp", "cv", "ds", "research", "llm/genai"]
+
+    req_regions = [r.lower() for r in config.get("regions", default_regions)]
+    req_topics = [t.lower() for t in config.get("topics", default_topics)]
+    
+    if not req_regions:
+        logger.warning("LinkedIn: No regions specified, using defaults")
+        req_regions = [r.lower() for r in default_regions]
+
     all_internships = []
     seen = set()
 
     with sync_playwright() as p:
         browser = p.chromium.launch(
-            headless=False,  # Visible for user interaction / CAPTCHA
+            headless=True,  # Fully automated
             args=get_playwright_stealth_args(),
         )
         context = browser.new_context(
@@ -169,6 +183,44 @@ def scrape_linkedin():
 
         for kw, loc, label in SEARCH_CONFIGS:
             try:
+                # Filter by config parameters
+                kw_lower = kw.lower()
+                loc_lower = loc.lower()
+                
+                # Check region map
+                is_india = "india" in loc_lower
+                is_remote = "remote" in loc_lower or "anywhere" in loc_lower
+                is_worldwide = "worldwide" in loc_lower
+                is_europe = "europe" in loc_lower or "kingdom" in loc_lower or "germany" in loc_lower or "france" in loc_lower or "netherlands" in loc_lower or "switzerland" in loc_lower or "sweden" in loc_lower or "denmark" in loc_lower or "finland" in loc_lower or "spain" in loc_lower or "italy" in loc_lower or "belgium" in loc_lower or "austria" in loc_lower
+                is_usa = "united states" in loc_lower or "bay area" in loc_lower or "seattle" in loc_lower or "boston" in loc_lower or "york" in loc_lower
+                
+                # Default map to worldwide if none of above
+                region_match = False
+                if "india" in req_regions and is_india: region_match = True
+                if "usa" in req_regions and is_usa: region_match = True
+                if "europe" in req_regions and is_europe: region_match = True
+                if "remote" in req_regions and is_remote: region_match = True
+                if "worldwide" in req_regions and (is_worldwide or (not is_india and not is_usa and not is_europe and not is_remote)): region_match = True
+                
+                if not region_match:
+                    continue
+                    
+                # Topic match
+                topic_match = False
+                if "ai" in req_topics and ("artificial intelligence" in kw_lower or "ai " in kw_lower or " ai" in kw_lower or kw_lower.startswith("ai") or "robotics" in kw_lower): topic_match = True
+                if "ml" in req_topics and ("machine learning" in kw_lower or "reinforcement" in kw_lower or "rl " in kw_lower): topic_match = True
+                if "dl" in req_topics and "deep learning" in kw_lower: topic_match = True
+                if "ds" in req_topics and "data science" in kw_lower: topic_match = True
+                if "cv" in req_topics and "computer vision" in kw_lower: topic_match = True
+                if "nlp" in req_topics and "natural language" in kw_lower: topic_match = True
+                if "research" in req_topics and "research" in kw_lower: topic_match = True
+                if "llm/genai" in req_topics and ("generative" in kw_lower or "large language" in kw_lower): topic_match = True
+                
+                # Allow fallback if no specific topic arrays given
+                if req_topics and not topic_match:
+                    # If user chose specific topics and this config query matches none of them, skip.
+                    continue
+                    
                 import urllib.parse
                 url = BASE_URL.format(
                     kw=urllib.parse.quote_plus(kw),
@@ -177,11 +229,7 @@ def scrape_linkedin():
                 logger.info(f"LinkedIn: Scraping [{label}] — {url}")
                 page.goto(url, timeout=45000)
 
-                logger.warning(
-                    "⏳ LinkedIn: Browser is open. Close any sign-in popup "
-                    "if it appears. Scraping in 15 seconds..."
-                )
-                human_delay(8.0, 12.0)  # Give user time to dismiss popups
+                # Automatically close popups without waiting for the user
                 _close_popups(page)
 
                 # Scroll to load more job cards
@@ -294,7 +342,8 @@ def scrape_linkedin():
 
             except Exception as e:
                 logger.error(f"LinkedIn: Failed to load [{label}]: {e}")
-                raise e
+                # Continue rather than raise, to preserve already scraped data
+                continue
 
             human_delay(4.0, 8.0)  # Respectful delay between searches
 

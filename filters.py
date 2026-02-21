@@ -12,20 +12,41 @@ INCLUDE_KEYWORDS = [
     "speech recognition", "recommendation system", "ai intern"
 ]
 
-EXCLUDE_KEYWORDS = ["senior", "5+ years", "lead", "manager", "director", "10 years"]
+EXCLUDE_KEYWORDS = [
+    "senior", "5+ years", "lead", "manager", "director", "10 years", 
+    "full time", "full-time", "job posting", "job opening", "expert",
+    "phd", "ph.d", "mtech", "m.tech", "master's", "masters degree",
+    # Language exclusions (user only knows English/Hindi)
+    "japanese", "german", "french", "mandarin", "spanish", "korean"
+]
 
-def is_valid_internship(title: str, skills: list) -> bool:
+def is_valid_internship(title: str, skills: list, source: str = "") -> bool:
     """
     Checks if the internship title or skills match our desired keywords
-    and do not contain exclusion keywords.
+    and do not contain exclusion keywords. MUST contain 'intern' unless on a dedicated internship platform.
     """
     title_lower = title.lower()
     skills_lower = [s.lower() for s in skills]
     text_to_check = title_lower + " " + " ".join(skills_lower)
 
+    # STRICT: Must contain 'intern' (intern, internship, intern/co-op, etc)
+    # UNLESS it is an inherently dedicated internship platform
+    is_internship_platform = source in ["internshala", "unstop"]
+    
+    if not "intern" in title_lower and not is_internship_platform:
+        return False
+
     # Check for exclusions first
     for exc in EXCLUDE_KEYWORDS:
         if exc in text_to_check:
+            return False
+            
+    # Reject explicitly past years in title or text
+    now = datetime.now()
+    target_year = now.year + (1 if now.month > 5 else 0)
+    for i in range(1, 10):
+        past_year = str(target_year - i)
+        if past_year in text_to_check:
             return False
 
     # Check for inclusions: Title OR Skills must have at least one keyword
@@ -77,13 +98,26 @@ def parse_summer_dates(date_string: str) -> bool:
     try:
         parsed_date = dateparser.parse(date_lower, settings={'PREFER_DATES_FROM': 'future'})
         if parsed_date:
-            # We enforce May 20th of the current year (or next if scraping in late winter)
-            curr_year = datetime.now().year
-            start_threshold = datetime(curr_year, 5, 20)
+            import re
             
-            # If it's starting between Jan 1 and May 19, reject it.
-            if parsed_date < start_threshold and parsed_date.year == curr_year:
-                return False
+            # Dynamically set target year based on current date
+            now = datetime.now()
+            target_year = now.year + (1 if now.month > 5 else 0)
+            
+            start_threshold = datetime(target_year, 5, 20)
+            end_threshold = datetime(target_year, 8, 31)
+            
+            # If it explicitly lists a year other than target_year, reject it
+            if parsed_date.year != target_year and (str(target_year) not in date_lower):
+                # Only strictly reject if it explicitly contains another 4-digit year (e.g., 2024, 2025, 2027)
+                year_match = re.search(r'\b(20\d{2})\b', date_lower)
+                if year_match and year_match.group(1) != str(target_year):
+                    return False
+            
+            # If starting before May 20 or after Aug 31 of target_year
+            if parsed_date.year == target_year:
+                if parsed_date < start_threshold or parsed_date > end_threshold:
+                    return False
                 
         return True
     except Exception:

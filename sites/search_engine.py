@@ -8,9 +8,14 @@ except ImportError:
     from duckduckgo_search import DDGS  # legacy fallback
 from filters import calculate_match_score, is_valid_internship
 
-def scrape_search_engine():
+def scrape_search_engine(config=None):
     """Dynamically aggregates hidden internship links using DuckDuckGo Dorks."""
     all_internships = []
+    
+    if config is None:
+        config = {}
+        
+    req_regions = [r.lower() for r in config.get("regions", ["india", "worldwide", "usa", "europe", "remote"])]
     
     # We define different categories of dorks to cover "everything else"
     # The queries emphasize summer, AI/ML, intern, and stipends.
@@ -92,9 +97,26 @@ def scrape_search_engine():
         }
     ]
     
+    active_queries = []
+    for q in queries:
+        lt = q["loc_type"].lower()
+        if lt == "india" and "india" not in req_regions: 
+            continue
+        if lt == "international" and not any(r in req_regions for r in ["worldwide", "usa", "europe"]): 
+            continue
+        if lt == "remote" and "remote" not in req_regions:
+            # Skip remote queries only if user exclusively selected "india"
+            if req_regions == ["india"]:
+                continue
+        active_queries.append(q)
+        
+    if not active_queries:
+        logger.warning("SearchEngine: No dork queries matched the requested regions.")
+        return []
+
     try:
         ddgs = DDGS()
-        for q_obj in queries:
+        for q_obj in active_queries:
             logger.info(f"Running Dork Search: {q_obj['q']}")
             try:
                 # Use text search, fetching top 15 results

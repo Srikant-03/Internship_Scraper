@@ -8,7 +8,7 @@ from loguru import logger
 from filters import calculate_match_score
 import re
 from playwright_stealth import Stealth
-from scraper_utils import human_delay, get_playwright_stealth_args
+from scraper_utils import human_delay, get_playwright_stealth_args, action_required, action_resolved
 from tenacity import retry, wait_exponential, stop_after_attempt
 
 @retry(wait=wait_exponential(multiplier=1, min=2, max=10), stop=stop_after_attempt(3))
@@ -18,7 +18,7 @@ def scrape_naukri():
     
     with sync_playwright() as p:
         browser = p.chromium.launch(
-            headless=False,  # Visible so user can fill CAPTCHA
+            headless=True,  # Fully automated
             args=get_playwright_stealth_args()
         )
         # Using a more robust context for Naukri to bypass basic blockers
@@ -35,10 +35,9 @@ def scrape_naukri():
             logger.info(f"Scraping Naukri: {url} ...")
             page.goto(url, timeout=45000)
             
-            # Wait for job list — give user time to solve CAPTCHA if shown
-            logger.warning("⏳ Naukri: Browser is open. If a CAPTCHA appears, please solve it within 45 seconds...")
+            # Wait for job list
             try:
-                page.wait_for_selector(".srp-jobtuple-wrapper", timeout=45000)
+                page.wait_for_selector(".srp-jobtuple-wrapper", timeout=15000)
             except Exception:
                 logger.warning("Naukri: Timeout waiting for job tuples. Maybe captcha or no results.")
                 

@@ -1,8 +1,28 @@
 let allInternships = [];
+let isLoadingData = false;
+
+function escapeHtml(str) {
+    if (!str) return '';
+    const div = document.createElement('div');
+    div.textContent = str;
+    return div.innerHTML;
+}
+
+function sanitizeUrl(url) {
+    if (!url) return '#';
+    try {
+        const parsed = new URL(url, window.location.origin);
+        if (['http:', 'https:'].includes(parsed.protocol)) {
+            return url;
+        }
+    } catch (e) { }
+    return '#';
+}
 
 document.addEventListener("DOMContentLoaded", () => {
     loadData();
     checkScraperStatus();
+    pollAlerts();  // Start polling for CAPTCHA/popup alerts
 
     // Setup event listeners
     document.getElementById("search-input").addEventListener("input", renderListings);
@@ -17,7 +37,33 @@ document.addEventListener("DOMContentLoaded", () => {
     // Region tab bar (Everything / India / Global / Remote)
     setupRegionTabs();
 
-    document.getElementById("trigger-scrape-btn").addEventListener("click", triggerScraper);
+    // Scraper Config Modal controls
+    const configModal = document.getElementById("scrape-config-modal");
+    document.getElementById("trigger-scrape-btn").addEventListener("click", () => configModal.classList.remove("hidden"));
+    document.getElementById("close-config-btn").addEventListener("click", () => configModal.classList.add("hidden"));
+
+    document.getElementById("scrape-config-form").addEventListener("submit", (e) => {
+        e.preventDefault();
+        configModal.classList.add("hidden");
+
+        // Build config payload from checked boxes
+        const getCheckedValues = (name) => Array.from(document.querySelectorAll(`input[name="${name}"]:checked`)).map(cb => cb.value);
+
+        const config = {
+            regions: getCheckedValues("regions"),
+            topics: getCheckedValues("topics"),
+            sources: getCheckedValues("sources")
+        };
+
+        triggerScraper(config);
+    });
+
+    document.getElementById("action-dismiss-btn").addEventListener("click", async () => {
+        document.getElementById("action-banner").classList.remove("show");
+        try {
+            await fetch("/api/alerts/dismiss", { method: "POST" });
+        } catch (e) { }
+    });
 
     // Modal controls
     const modal = document.getElementById("instructions-modal");
@@ -25,6 +71,34 @@ document.addEventListener("DOMContentLoaded", () => {
     document.getElementById("close-modal-btn").addEventListener("click", () => modal.classList.add("hidden"));
     modal.addEventListener("click", (e) => {
         if (e.target === modal) modal.classList.add("hidden");
+    });
+
+    // Clear data controls
+    document.getElementById("clear-data-btn").addEventListener("click", async () => {
+        if (!confirm("Are you sure you want to permanently delete all scraped internships and logs? This cannot be undone.")) return;
+
+        try {
+            const res = await fetch("/api/clear", { method: "POST" });
+            const data = await res.json();
+
+            if (data.status === "success") {
+                allInternships = [];
+                renderListings();
+                updateRegionCounts();
+                document.getElementById("total-count").innerText = "0";
+
+                // Fetch fresh logs to clear the panel
+                const content = document.getElementById("logs-content");
+                if (content) content.innerHTML = "<div>No logs yet. Click 'Run Scraper Now' to start!</div>";
+
+                alert("Database successfully cleared!");
+            } else {
+                alert("Failed to clear data: " + data.message);
+            }
+        } catch (e) {
+            console.error("Error clearing data:", e);
+            alert("An error occurred while clearing data.");
+        }
     });
 
     // Logs panel controls
@@ -110,8 +184,13 @@ function updateRegionCounts() {
 
 
 async function loadData() {
-    document.getElementById("loading-spinner").classList.remove("hidden");
-    document.getElementById("listings-container").innerHTML = "";
+    if (isLoadingData) return;
+    isLoadingData = true;
+
+    // Only show loading spinner on first load if container is empty
+    if (document.getElementById("listings-container").children.length === 0) {
+        document.getElementById("loading-spinner").classList.remove("hidden");
+    }
 
     try {
         const res = await fetch("/api/internships");
@@ -134,13 +213,19 @@ async function loadData() {
 
         document.getElementById("total-count").innerText = allInternships.length;
 
-        // Populate sources
-        const sources = [...new Set(allInternships.map(i => i.source_platform))];
+        // Populate sources without causing dropdown to collapse
+        const sources = [...new Set(allInternships.map(i => i.source_platform))].filter(Boolean).sort();
         const sourceSelect = document.getElementById("source-filter");
-        sourceSelect.innerHTML = '<option value="all">All Sources</option>';
-        sources.forEach(s => {
-            if (s) sourceSelect.innerHTML += `<option value="${s}">${s}</option>`;
-        });
+
+        const currentOptions = Array.from(sourceSelect.options).map(o => o.value).filter(v => v !== 'all').sort();
+        if (JSON.stringify(sources) !== JSON.stringify(currentOptions)) {
+            const currentSelection = sourceSelect.value;
+            sourceSelect.innerHTML = '<option value="all">All Sources</option>';
+            sources.forEach(s => {
+                const isSelected = (s === currentSelection) ? 'selected' : '';
+                sourceSelect.innerHTML += `<option value="${escapeHtml(s)}" ${isSelected}>${escapeHtml(s)}</option>`;
+            });
+        }
 
         renderListings();
         updateRegionCounts();
@@ -148,12 +233,12 @@ async function loadData() {
         console.error("Failed to load data", err);
     } finally {
         document.getElementById("loading-spinner").classList.add("hidden");
+        isLoadingData = false;
     }
 }
 
 function renderListings() {
     const container = document.getElementById("listings-container");
-    container.innerHTML = "";
 
     const searchQ = document.getElementById("search-input").value.toLowerCase();
     const sourceF = document.getElementById("source-filter").value;
@@ -204,54 +289,105 @@ function renderListings() {
 
     document.getElementById("visible-count").innerText = filtered.length;
 
+    const existingCards = Array.from(container.children).filter(c => c.tagName === 'DIV' && c.hasAttribute('data-id'));
+    const existingIds = new Set(existingCards.map(c => c.dataset.id));
+    const validIds = new Set(filtered.map(i => i.id));
+
     if (filtered.length === 0) {
-        container.innerHTML = `<p style="color:var(--text-muted); grid-column: 1/-1; text-align:center; padding: 40px;">No internships found matching your criteria.</p>`;
+        // Keep it empty, show message
+        container.innerHTML = `<p class="empty-msg" style="color:var(--text-muted); grid-column: 1/-1; text-align:center; padding: 40px;">No internships found matching your criteria.</p>`;
         return;
+    } else {
+        // Remove empty state message if it exists
+        const emptyMsg = container.querySelector(".empty-msg");
+        if (emptyMsg) emptyMsg.remove();
     }
 
-    filtered.forEach((item, index) => {
-        const isNewHtml = item.is_new ? `<div class="new-badge">New</div>` : '';
-        const stipendDisp = item.stipend ? item.stipend : "Unpaid / Not Disclosed";
-        const durDisp = item.duration ? item.duration : "N/A";
-        const locDisp = item.location ? item.location : item.location_type;
-        const skillsDisp = item.required_skills ? item.required_skills : "Not specified";
-        const scoreBadge = item.match_score ? `<div class="match-score-badge ${item.match_score >= 80 ? 'high-score' : (item.match_score >= 60 ? 'med-score' : 'low-score')}">${item.match_score}% Match</div>` : '';
-        const orgBadge = item.org_type ? `<span class="tag tag-org"><i class="ph ph-bank"></i> ${item.org_type}</span>` : '';
-        const roleBadge = item.role_type ? `<span class="tag tag-role"><i class="ph ph-flask"></i> ${item.role_type}</span>` : '';
-
-        const card = document.createElement("div");
-        // Only animate first 30 cards — rest are instantly visible
-        if (index < 30) {
-            card.className = "card animate-in";
-            card.style.animationDelay = `${(index * 0.04).toFixed(2)}s`;
-        } else {
-            card.className = "card";  // immediately visible
+    // 1. Remove cards that are no longer valid (filtered out)
+    existingCards.forEach(card => {
+        if (!validIds.has(card.dataset.id)) {
+            card.remove();
+            existingIds.delete(card.dataset.id);
         }
-        card.innerHTML = `
-            ${isNewHtml}
-            ${scoreBadge}
-            <div class="card-header" style="margin-top: ${item.match_score ? '20px' : '0'};">
-                <div class="company-name"><i class="ph ph-buildings"></i> ${item.company_name}</div>
-            </div>
-            <h3 class="role-title">${item.role_title}</h3>
-            
-            <div class="tags">
-                <span class="tag tag-loc"><i class="ph ph-map-pin"></i> ${locDisp}</span>
-                <span class="tag tag-stipend"><i class="ph ph-money"></i> ${stipendDisp}</span>
-                ${orgBadge}
-                ${roleBadge}
-            </div>
-            
-            <div class="skills-list">
-                <strong>Skills:</strong> ${skillsDisp}
-            </div>
-            
-            <div class="card-footer">
-                <span class="source-info">Via ${item.source_platform} &bull; ${item.date_scraped}</span>
-                <a href="${item.apply_link}" target="_blank" class="apply-btn">View Details</a>
-            </div>
-        `;
-        container.appendChild(card);
+    });
+
+    // 2. Add new cards that aren't in the DOM yet
+    const fragment = document.createDocumentFragment();
+    let newCardsCount = 0;
+
+    filtered.forEach((item, index) => {
+        if (!existingIds.has(item.id)) {
+            const isNewHtml = item.is_new ? `<div class="new-badge">New</div>` : '';
+            const stipendDisp = escapeHtml(item.stipend ? item.stipend : "Unpaid / Not Disclosed");
+            const durDisp = escapeHtml(item.duration ? item.duration : "N/A");
+            const locDisp = escapeHtml(item.location ? item.location : item.location_type);
+            const skillsDisp = escapeHtml(item.required_skills ? item.required_skills : "Not specified");
+            const scoreBadge = item.match_score ? `<div class="match-score-badge ${item.match_score >= 80 ? 'high-score' : (item.match_score >= 60 ? 'med-score' : 'low-score')}">${item.match_score}% Match</div>` : '';
+            const orgBadge = item.org_type ? `<span class="tag tag-org"><i class="ph ph-bank"></i> ${escapeHtml(item.org_type)}</span>` : '';
+            const roleBadge = item.role_type ? `<span class="tag tag-role"><i class="ph ph-flask"></i> ${escapeHtml(item.role_type)}</span>` : '';
+
+            const safeCompany = escapeHtml(item.company_name);
+            const safeRole = escapeHtml(item.role_title);
+            const safeSource = escapeHtml(item.source_platform);
+            const safeDate = escapeHtml(item.date_scraped);
+
+            const card = document.createElement("div");
+            card.dataset.id = item.id;
+
+            // Only animate the newly added cards that fit in the first page view to prevent lag 
+            if (newCardsCount < 30) {
+                card.className = "card animate-in";
+                card.style.animationDelay = `${(newCardsCount * 0.04).toFixed(2)}s`;
+            } else {
+                card.className = "card";
+            }
+
+            card.innerHTML = `
+                ${isNewHtml}
+                ${scoreBadge}
+                <div class="card-header" style="margin-top: ${item.match_score ? '20px' : '0'};">
+                    <div class="company-name"><i class="ph ph-buildings"></i> ${safeCompany}</div>
+                </div>
+                <h3 class="role-title">${safeRole}</h3>
+                
+                <div class="tags">
+                    <span class="tag tag-loc"><i class="ph ph-map-pin"></i> ${locDisp}</span>
+                    <span class="tag tag-stipend"><i class="ph ph-money"></i> ${stipendDisp}</span>
+                    ${orgBadge}
+                    ${roleBadge}
+                </div>
+                
+                <div class="skills-list">
+                    <strong>Skills:</strong> ${skillsDisp}
+                </div>
+                
+                <div class="card-footer">
+                    <span class="source-info">Via ${safeSource} &bull; ${safeDate}</span>
+                    <a href="${sanitizeUrl(item.apply_link)}" target="_blank" rel="noopener noreferrer" class="apply-btn">View Details</a>
+                </div>
+            `;
+            fragment.appendChild(card);
+            newCardsCount++;
+        }
+    });
+
+    // Append all new cards at once
+    container.appendChild(fragment);
+
+    // Completely eliminate UI flickering: DO NOT physically detach/reattach DOM nodes to sort them.
+    // Since the container is a CSS Grid, we can flawlessly sort them visually using the flex/grid 'order' property.
+    const idToNode = new Map();
+    Array.from(container.children).forEach(c => {
+        if (c.tagName === 'DIV' && c.hasAttribute('data-id')) {
+            idToNode.set(c.dataset.id, c);
+        }
+    });
+
+    filtered.forEach((item, index) => {
+        const cardNode = idToNode.get(String(item.id));
+        if (cardNode) {
+            cardNode.style.order = index;
+        }
     });
 }
 
@@ -304,10 +440,14 @@ function normalizeLocationTypes(items) {
 }
 
 
-async function triggerScraper() {
+async function triggerScraper(config) {
     setScrapingState(true);
     try {
-        const res = await fetch("/api/scrape", { method: "POST" });
+        const res = await fetch("/api/scrape", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(config)
+        });
         const data = await res.json();
         setTimeout(checkScraperStatus, 2000);
     } catch (err) {
@@ -322,6 +462,8 @@ async function checkScraperStatus() {
         const data = await res.json();
         if (data.status === "running") {
             setScrapingState(true);
+            // LIVE UPDATES: Fetch data as it's scraped
+            loadData();
         } else {
             setScrapingState(false);
         }
@@ -346,7 +488,7 @@ function setScrapingState(isRunning) {
         icon.classList.remove("ph-spinner", "ph-spin");
         icon.classList.add("ph-arrows-clockwise");
 
-        // If it just finished, reload data
+        // If it just finished, reload data one final time
         if (wasRunning) {
             wasRunning = false;
             loadData();
@@ -374,3 +516,26 @@ async function fetchLogs() {
         console.error("Failed to fetch logs", e);
     }
 }
+
+async function pollAlerts() {
+    try {
+        const res = await fetch("/api/alerts");
+        const data = await res.json();
+        const banner = document.getElementById("action-banner");
+
+        if (data.alert) {
+            document.getElementById("action-title").innerText = `Action Required [${data.alert.source}]`;
+            document.getElementById("action-message").innerText = data.alert.message;
+            if (!banner.classList.contains("show")) {
+                banner.classList.add("show");
+            }
+        } else {
+            banner.classList.remove("show");
+        }
+    } catch (err) {
+        // ignore fetch errs
+    } finally {
+        setTimeout(pollAlerts, 2000);
+    }
+}
+

@@ -29,7 +29,7 @@ def process_and_save(source_name: str, raw_listings: list):
         skills = item.get("required_skills", "")
         skill_list = [s.strip() for s in skills.split(",") if s.strip()]
         
-        if not is_valid_internship(item["role_title"], skill_list):
+        if not is_valid_internship(item["role_title"], skill_list, source_name):
             continue
             
         # Check stipend
@@ -47,41 +47,81 @@ def process_and_save(source_name: str, raw_listings: list):
     logger.info(f"[{source_name}] Analyzed {len(raw_listings)} listings, found {len(valid_listings)} matches, and saved {added} brand new ones!")
     return added
 
-def run_scrapers(dry_run=False, specific_source=None):
+def run_scrapers(dry_run=False, config=None):
     total_added = 0
     failed_sources = []
     
-    scrapers = {
-        "internshala": scrape_internshala,
-        "unstop": scrape_unstop,
-        "naukri": scrape_naukri,
-        "government": scrape_government,
-        "shine": scrape_shine,
-        "foundit": scrape_foundit,
-        "apna": scrape_apna,
-        "cutshort": scrape_cutshort,
-        "international": scrape_international,
-        "linkedin": scrape_linkedin,          # NEW: direct LinkedIn Jobs page
-        "remotive": scrape_remotive,           # Remote jobs RSS (was 'linkedin')
-        "weworkremotely": scrape_weworkremotely, # Remote jobs RSS (was 'indeed')
-        "bigtech": scrape_bigtech,
-        "niche": scrape_niche_boards,
-        "aggregators": scrape_aggregators,
-        "universities": scrape_universities,
-        "search": scrape_search_engine
-    }
+    # Default to everything if no config passed
+    if config is None:
+        config = {
+            "regions": ["india", "worldwide", "usa", "europe", "remote"],
+            "topics": ["ml", "ai", "nlp", "cv", "ds", "research", "llm/genai"],
+            "paid_only": False,
+            "sources": ["linkedin", "internshala", "unstop", "naukri", "bigtech", "remotive", "universities", "government"]
+        }
     
-    if specific_source:
-        if specific_source in scrapers:
-            scrapers = {specific_source: scrapers[specific_source]}
-        else:
-            logger.error(f"Source {specific_source} not found.")
-            return
+    logger.info(f"🚀 Starting selective scraper with config: {config}")
+    
+    # Clear old popup alerts from a previous run
+    from pathlib import Path
+    alert_file = Path(__file__).parent / "scraper_alerts.json"
+    if alert_file.exists():
+        try:
+            alert_file.unlink()
+        except OSError:
+            pass
+    
+    req_regions = set([r.lower() for r in config.get("regions", [])])
+    req_sources = set([s.lower() for s in config.get("sources", [])])
+    
+    scrapers_to_run = {}
+    
+    # Map scrapers to explicit UI checkboxes
+    if "internshala" in req_sources: 
+        scrapers_to_run["internshala"] = scrape_internshala
+        
+    if "naukri" in req_sources: 
+        scrapers_to_run.update({
+            "naukri": scrape_naukri, "shine": scrape_shine, 
+            "foundit": scrape_foundit, "apna": scrape_apna, "cutshort": scrape_cutshort
+        })
+        
+    if "unstop" in req_sources: 
+        scrapers_to_run["unstop"] = scrape_unstop
+        
+    if "linkedin" in req_sources: 
+        scrapers_to_run["linkedin"] = scrape_linkedin
+        
+    if "bigtech" in req_sources: 
+        scrapers_to_run["bigtech"] = scrape_bigtech
+        
+    if "remotive" in req_sources: 
+        scrapers_to_run.update({
+            "remotive": scrape_remotive, 
+            "weworkremotely": scrape_weworkremotely, 
+            "international": scrape_international, 
+            "niche": scrape_niche_boards, 
+            "aggregators": scrape_aggregators, 
+            "search": scrape_search_engine
+        })
+        
+    if "government" in req_sources: 
+        scrapers_to_run["government"] = scrape_government
+        
+    if "universities" in req_sources:
+        scrapers_to_run["universities"] = scrape_universities
 
-    for source_name, scraper_func in scrapers.items():
+    if not scrapers_to_run:
+        logger.warning("No scrapers matched the provided configuration filters!")
+        return 0
+
+    for source_name, scraper_func in scrapers_to_run.items():
         try:
             logger.info(f"🚀 Starting to check {source_name} for new opportunities...")
-            listings = scraper_func()
+            if source_name in ["linkedin", "search"]:
+                listings = scraper_func(config=config)
+            else:
+                listings = scraper_func()
             if not dry_run:
                 added = process_and_save(source_name, listings)
                 total_added += added
